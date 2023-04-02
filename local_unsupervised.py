@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import torch.nn as nn
 from options import args_parser
 from utils import losses
+from utils import proximal
 from utils.util import get_timestamp, calculate_bank
 
 args = args_parser()
@@ -24,7 +25,11 @@ class UnsupervisedLocalUpdate(object):
           self.permanent_bank = set()
           self.real_Pi = list(Pi.numpy())
          
-     def train(self, args, net, op_dict, epoch, logging):
+     def train(self, args, net, net_global, op_dict, epoch, logging):
+          
+          # Global Model T for wt in Proximal Term
+          global_model_t = net_global
+
           net.cuda()
           net.train()
           self.optimizer = torch.optim.Adam(net.parameters(), lr=args.base_lr, betas=(0.9, 0.999), weight_decay=5e-4)
@@ -109,7 +114,9 @@ class UnsupervisedLocalUpdate(object):
                     representations, logits, outputs = net(inputs, Pi=Pi, priors_corr=priors_corr)
                  
                     loss = loss_fun(outputs, label_batch.long()) 
-
+                    
+                    loss += proximal.proximal_term(args.mu, net.cuda(), global_model_t.cuda())
+                    
                     self.optimizer.zero_grad()
                     loss.backward()
                     self.optimizer.step()

@@ -231,9 +231,10 @@ if __name__ == '__main__':
                     optim_locals.append(copy.deepcopy(optimizer.state_dict()))
                 flag_create = True
             for idx in unsupervised_user_id :
+                print('Client: {}', format(idx))
                 local = trainer_locals[idx]
                 optimizer = optim_locals[idx]
-                w, loss, op = local.train(args, net_locals[idx], optimizer, com_round*args.local_ep, logging)
+                w, loss, op = local.train(args, net_locals[idx], server_net, optimizer, com_round*args.local_ep, logging)
 
                 w_locals[idx] = copy.deepcopy(w)
                 optim_locals[idx] = copy.deepcopy(op)
