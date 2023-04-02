@@ -21,6 +21,7 @@ def args_parser():
      parser.add_argument('--model_path', type = str, default='models/imfed_semi/brain.pth', help='Path for loading the checkpoint')
      parser.add_argument('--hi_lp', type=float,  default=0.9, help='confidence for label proportion estimation degree')
      parser.add_argument('--lo_lp', type=float,  default=0.5, help='confidence for label proportion estimation degree')
+     parser.add_argument('--mu', type=float, default=0, help="Value of mu for proximal term in FedProx")
      parser.add_argument('--label_uncertainty', type=str,  default='U-Ones', help='label type')
      args = parser.parse_args()
      return args
