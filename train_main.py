@@ -201,14 +201,18 @@ if __name__ == '__main__':
     alternate_comm = 'Unsup'
 
     '''supervised server setup'''
+    # Server update
     server_trainer = SupervisedLocalUpdate(args, train_dataset, dict_users_train['server'])
     server_net = copy.deepcopy(net_glob).cuda()
     optimizer = torch.optim.Adam(server_net.parameters(), lr=args.base_lr, 
                                 betas=(0.9, 0.999), weight_decay=5e-4)
     server_optim = copy.deepcopy(optimizer.state_dict())
 
+    # Loading local clients
     for i in unsupervised_user_id :
         trainer_locals.append(UnsupervisedLocalUpdate(args, unsup_train_datasets[i], client_Pi[i], client_priors_corr[i]))
+
+    global_model = copy.deepcopy(net_glob)
 
     for com_round in range(args.rounds):
         print(f"\n=== Round {com_round} ===")
@@ -231,10 +235,11 @@ if __name__ == '__main__':
                     optim_locals.append(copy.deepcopy(optimizer.state_dict()))
                 flag_create = True
             for idx in unsupervised_user_id :
-                print('Client: {}', format(idx))
+                print("client: {}".format(idx))
                 local = trainer_locals[idx]
                 optimizer = optim_locals[idx]
-                w, loss, op = local.train(args, net_locals[idx], server_net, optimizer, com_round*args.local_ep, logging)
+                # print(w_glob)
+                w, loss, op = local.train(args, net_locals[idx], global_model, optimizer, com_round*args.local_ep, logging)
 
                 w_locals[idx] = copy.deepcopy(w)
                 optim_locals[idx] = copy.deepcopy(op)
@@ -253,7 +258,10 @@ if __name__ == '__main__':
             net_glob.load_state_dict(w_glob)
             server_optim = copy.deepcopy(op)
             loss_locals.append(copy.deepcopy(loss))
+
+            global_model = copy.deepcopy(net_glob)
             
+            # W_Glob is passed to the local clients
             '''Broadcast clients models'''
             for i in unsupervised_user_id:
                 net_locals[i].load_state_dict(w_glob)

@@ -25,10 +25,12 @@ class UnsupervisedLocalUpdate(object):
           self.permanent_bank = set()
           self.real_Pi = list(Pi.numpy())
          
-     def train(self, args, net, net_global, op_dict, epoch, logging):
-          
+     def train(self, args, net, w_glob, op_dict, epoch, logging):
+
           # Global Model T for wt in Proximal Term
-          global_model_t = net_global
+          # global_model_t = w_glob.state_dict()
+          # print("Global")
+          # print(global_model_t)
 
           net.cuda()
           net.train()
@@ -43,7 +45,7 @@ class UnsupervisedLocalUpdate(object):
           epoch_loss = []
           
           print(" Inference priors")
-          Pi = torch.zeros_like(self.Pi.float()).cpu().int()
+          Pi = torch.zeros_like(self.Pi.float()).cuda().int()
           
           net.eval()
           self.dataset.re_load()
@@ -55,7 +57,7 @@ class UnsupervisedLocalUpdate(object):
           
                representations, logits, outputs = net(inputs)
 
-               max_probs, pseudo_labels = torch.max(outputs.cpu(),dim=1)
+               max_probs, pseudo_labels = torch.max(outputs.cuda(),dim=1)
                # no confidence filter
                items = list(items)
                
@@ -87,7 +89,7 @@ class UnsupervisedLocalUpdate(object):
           
                representations, logits, outputs = net(inputs)
 
-               max_probs, pseudo_labels = torch.max(outputs.cpu(),dim=1)
+               max_probs, pseudo_labels = torch.max(outputs.cuda(),dim=1)
                label_batch = list(label_batch.int().cpu().numpy())
                for i in range(len(label_batch)):
                     Pi[label_batch[i]][pseudo_labels[i]] += 1
@@ -114,11 +116,13 @@ class UnsupervisedLocalUpdate(object):
                     representations, logits, outputs = net(inputs, Pi=Pi, priors_corr=priors_corr)
                  
                     loss = loss_fun(outputs, label_batch.long()) 
-                    
-                    loss += proximal.proximal_term(args.mu, net.cuda(), global_model_t.cuda())
-                    
+
+                    loss = loss + proximal.proximal_term(args.mu, net.cuda(), w_glob.cuda())
+
                     self.optimizer.zero_grad()
+
                     loss.backward()
+
                     self.optimizer.step()
                     
                     batch_loss.append(loss.item())
@@ -128,7 +132,6 @@ class UnsupervisedLocalUpdate(object):
                self.epoch = self.epoch + 1
                epoch_loss.append(sum(batch_loss) / len(batch_loss))
                print(f' Local Loss: {epoch_loss}')
-          net.cpu()
+          net.cuda()
           net_states = net.state_dict()
           return net_states, sum(epoch_loss) / len(epoch_loss), copy.deepcopy(self.optimizer.state_dict()) 
-    
